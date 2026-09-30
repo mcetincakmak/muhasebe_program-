@@ -174,9 +174,14 @@ def kullanici_ekle(v: dict):
 @router.put("/api/kullanicilar/{kid}")
 def kullanici_guncelle(kid: int, v: dict, request: Request):
     with db.sistem() as con:
-        if not con.execute("SELECT 1 FROM kullanicilar WHERE id=?", (kid,)).fetchone():
+        mevcut = con.execute("SELECT aktif FROM kullanicilar WHERE id=?", (kid,)).fetchone()
+        if not mevcut:
             hata("Kullanıcı bulunamadı.", 404)
         aktif = 1 if v.get("aktif", True) else 0
+        if aktif and not mevcut["aktif"]:
+            sinir = lisans.durum()["kullanici"]
+            if con.execute("SELECT COUNT(*) FROM kullanicilar WHERE aktif=1").fetchone()[0] >= sinir:
+                hata(f"Lisansınız en fazla {sinir} kullanıcıya izin veriyor.")
         yonetici = 1 if v.get("sistem_yoneticisi") else 0
         if (not aktif or not yonetici) and not _sistem_yoneticisi_kalir_mi(con, kid):
             hata("En az bir etkin sistem yöneticisi kalmalı.")
@@ -220,10 +225,15 @@ def firma_ekle(v: dict, request: Request):
 @router.put("/api/firmalar/{fid}")
 def firma_guncelle(fid: int, v: dict, request: Request):
     with db.sistem() as con:
-        if not con.execute("SELECT 1 FROM firmalar WHERE id=?", (fid,)).fetchone():
+        mevcut = con.execute("SELECT aktif FROM firmalar WHERE id=?", (fid,)).fetchone()
+        if not mevcut:
             hata("Firma bulunamadı.", 404)
         if "aktif" in v and not v["aktif"] and fid == request.state.kullanici["firma_id"]:
             hata("Şu an açık olan firmayı pasifleştiremezsiniz; önce başka firmaya geçin.")
+        if v.get("aktif") and not mevcut["aktif"]:
+            sinir = lisans.durum()["firma"]
+            if con.execute("SELECT COUNT(*) FROM firmalar WHERE aktif=1").fetchone()[0] >= sinir:
+                hata(f"Lisansınız en fazla {sinir} firmaya izin veriyor.")
         if "aktif" in v:
             con.execute("UPDATE firmalar SET aktif=? WHERE id=?", (1 if v["aktif"] else 0, fid))
     return {"ok": True}

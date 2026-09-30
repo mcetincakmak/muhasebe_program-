@@ -39,13 +39,16 @@ def tarama_yap():
 def _tarama_yap():
     son = int(db.ayar_al("gelen_son_sira", "0") or 0)
     belgeler, yeni_son = entegrator.istemci(db.ayarlar_hepsi()).gelen_faturalar(son)
-    eklenen = 0
+    eklenen, hatalar = 0, []
     with db.islem() as con:
         for ent_id, xml in belgeler:
             try:
                 eklenen += _gelen_kaydet(con, ent_id, xml)
             except Exception as e:  # bozuk bir belge taramayı durdurmasın
-                db.gunluge_yaz(f"Gelen belge okunamadı ({ent_id}): {e}")
+                hatalar.append(f"Gelen belge okunamadı ({ent_id}): {e}")
+    # Günlüğe işlem bittikten sonra yaz: açık yazma işlemi sürerken ikinci bağlantı veritabanını kilitli bulur
+    for mesaj in hatalar:
+        db.gunluge_yaz(mesaj)
     db.ayar_yaz({"gelen_son_sira": yeni_son, "son_tarama": datetime.now().isoformat(timespec="minutes")})
     otomatik, oneri = eslestir()
     ozet = f"{eklenen} yeni fatura, {otomatik} irsaliye otomatik eşleşti, {oneri} yeni öneri."

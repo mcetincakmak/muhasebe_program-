@@ -11,6 +11,7 @@ os.environ["FATURA_ZAMANLAYICI"] = "0"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app.core import db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.servisler.ubl import fatura_xml, hesapla, xml_ozet  # noqa: E402
 
@@ -195,3 +196,43 @@ def test_lisans_bitince_salt_okuma(c, monkeypatch):
     assert c.get("/api/cariler").status_code == 200
     assert c.post("/api/cariler", json={"unvan": "Yeni"}).status_code == 403
     assert c.get("/api/disa-aktar").status_code == 200
+
+
+def test_bozuk_gelen_belge_taramayi_durdurmaz(c, monkeypatch):
+    from app.entegrator import deneme
+    # Yeni (kaydedilecek) bir belgeden SONRA gelen bozuk belge: kayıt işlemi açıkken günlüğe yazmaya çalışmamalı
+    yeni = fatura_xml({"fatura_no": "YNI2026000000001", "uuid": "bozuk-testi-yeni", "tip": "EFATURA", "tarih": "2026-09-01",
+                       "satirlar": [{"ad": "Toner", "miktar": 1, "birim_fiyat": 500, "kdv": 20}]},
+                      {"unvan": "Yeni Tedarikçi Ltd.", "vkn": "5555555555"}, {"unvan": "Test", "vkn": "4810012345"})
+    monkeypatch.setattr(deneme.Deneme, "gelen_faturalar",
+                        lambda self, son=0: ([("YENI-1", yeni), ("BOZUK-1", "<bozuk")], son))
+    monkeypatch.setattr(db, "_baglan", _kisa_zaman_asimli(db._baglan))
+    r = c.post("/api/tarama")
+    assert r.status_code == 200, r.text
+    assert r.json()["eklenen"] == 1
+    assert any("BOZUK-1" in g["mesaj"] for g in c.get("/api/gunluk").json())
+
+
+def _kisa_zaman_asimli(baglan):
+    """Kilitlenmeyi 30 sn beklemek yerine hemen hata olarak görmek için."""
+    def sar(yol):
+        con = baglan(yol)
+        con.execute("PRAGMA busy_timeout = 200")
+        return con
+    return sar
+
+
+def test_lisans_siniri_yeniden_etkinlestirmede_de_gecerli(c):
+    kullanicilar = {k["kullanici_adi"]: k for k in c.get("/api/kullanicilar").json()}
+    musavir = kullanicilar["musavir"]
+    assert c.put(f"/api/kullanicilar/{musavir['id']}", json={"ad": "M", "aktif": False}).status_code == 200
+    assert c.post("/api/kullanicilar", json={"kullanici_adi": "yedek", "sifre": "yedek1234"}).status_code == 200
+    r = c.put(f"/api/kullanicilar/{musavir['id']}", json={"ad": "M", "aktif": True})
+    assert r.status_code == 400 and "kullanıcı" in r.json()["detail"]
+
+    aktif = c.get("/api/ben").json()["firma"]["id"]
+    diger = next(f for f in c.get("/api/firmalar").json() if f["id"] != aktif)
+    assert c.put(f"/api/firmalar/{diger['id']}", json={"aktif": False}).status_code == 200
+    assert c.post("/api/firmalar", json={"unvan": "Üçüncü Firma"}).status_code == 200
+    r = c.put(f"/api/firmalar/{diger['id']}", json={"aktif": True})
+    assert r.status_code == 400 and "firma" in r.json()["detail"]
