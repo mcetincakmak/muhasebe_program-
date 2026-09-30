@@ -236,3 +236,11 @@ def test_lisans_siniri_yeniden_etkinlestirmede_de_gecerli(c):
     assert c.post("/api/firmalar", json={"unvan": "Üçüncü Firma"}).status_code == 200
     r = c.put(f"/api/firmalar/{diger['id']}", json={"aktif": True})
     assert r.status_code == 400 and "firma" in r.json()["detail"]
+
+
+def test_turkce_ocr_dosyalari_kurulumun_indirdigi_yerde_aranir():
+    # kurulum.ps1 dil dosyalarını kendi klasöründeki tessdata'ya indirir; program da orada aramalı
+    from app.servisler.okuma import YEREL_TESSDATA
+    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    assert os.path.isfile(os.path.join(kok, "kurulum.ps1"))
+    assert os.path.normcase(YEREL_TESSDATA) == os.path.normcase(os.path.join(kok, "tessdata"))

@@ -14,6 +14,8 @@ import shutil
 
 import requests
 
+from ..core.yapilandirma import KOK
+
 VARSAYILAN_MODEL = "claude-sonnet-5-5"
 
 TALIMAT = """Bu fotoğraf(lar) Türkiye'de düzenlenmiş bir sevk irsaliyesi veya kağıt fatura. Birden fazla fotoğraf varsa aynı belgenin sayfalarıdır.
@@ -124,7 +126,8 @@ WINDOWS_YOLLARI = [
 
 
 # Kurulum betiği Türkçe dil dosyalarını program klasöründeki "tessdata" içine indirir (yönetici izni gerekmez).
-YEREL_TESSDATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tessdata")
+# Program klasörü = kurulum.ps1'in bulunduğu kök klasör (app/ değil).
+YEREL_TESSDATA = os.path.join(KOK, "tessdata")
 
 
 def _tess_ayar():
