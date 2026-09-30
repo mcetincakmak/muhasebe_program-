@@ -1,0 +1,61 @@
+name: Testler
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testler-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Testler (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Program ofiste Windows'ta çalışır; Linux'ta da denenir.
+        os: [windows-latest, ubuntu-latest]
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"   # KUR.bat'ın kurduğu sürüm
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Tesseract (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr tesseract-ocr-tur
+
+      - name: Tesseract (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install tesseract --no-progress -y
+          # kurulum.ps1 ile aynı: Türkçe dil dosyaları program klasöründeki tessdata'ya
+          New-Item -ItemType Directory -Force -Path tessdata | Out-Null
+          foreach ($dil in @("tur", "eng", "osd")) {
+            Invoke-WebRequest "https://github.com/tesseract-ocr/tessdata/raw/main/$dil.traineddata" -OutFile "tessdata/$dil.traineddata"
+          }
+
+      - name: Bağımlılıklar
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt httpx pyflakes
+
+      - name: Pyflakes
+        run: python -m pyflakes app tests tools
+
+      - name: Pytest
+        run: python -m pytest tests -v
