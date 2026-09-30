@@ -11,6 +11,9 @@ const tl = x => para(x) + ' TL';
 const pb = (x, p) => para(x) + ' ' + (!p || p === 'TRY' ? 'TL' : p);
 const tarihTR = t => t ? esc(String(t).split('-').reverse().join('.')) : '';
 const bugun = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const gunEkle = (t, n) => { const d = new Date(t + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const gecikmeGun = v => v ? Math.round((new Date(bugun() + 'T00:00:00Z') - new Date(v + 'T00:00:00Z')) / 86400000) : 0;
+const gecikmeRozet = g => g > 0 ? `<span class="rozet HATA">${g} gün gecikti</span>` : g === 0 ? '<span class="rozet TASLAK">Bugün</span>' : `<span class="rozet">${-g} gün var</span>`;
 const DURUM = { TASLAK: 'Taslak', GONDERILDI: 'Gönderildi', ONAYLANDI: 'Tamamlandı', HATA: 'Hata' };
 const IDURUM = { KONTROL: 'Kontrol gerekli', ONERI: 'Onay bekliyor', BEKLIYOR: 'Fatura bekleniyor', ESLESTI: 'Faturayla eşleşti' };
 const IROZET = { KONTROL: 'TASLAK', ONERI: 'TASLAK', BEKLIYOR: '', ESLESTI: 'ONAYLANDI' };
@@ -28,6 +31,7 @@ const IK = {
   arti: '<path d="M12 5v14M5 12h14"/>',
   sil: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   irs: '<path d="M3 7h11v9H3zM14 10h4l3 3v3h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>',
+  vade: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   kasa: '<path d="M3 7h18v12H3zM3 11h18M7 15h3M16 4l-4 3-4-3"/>',
   rapor: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   yonetim: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
@@ -118,7 +122,7 @@ function firmaYokEkrani() {
 // ------------------------------------------------------------------ Kabuk ve yönlendirme
 const MENU = [
   ['#/', 'Özet', 'ozet', 'okuma'], ['#/faturalar', 'Satış faturaları', 'fatura', 'okuma'], ['#/alis', 'Alış faturaları', 'gelen', 'okuma'],
-  ['#/irsaliyeler', 'İrsaliyeler', 'irs', 'irsaliye|okuma'], ['#/cariler', 'Cariler', 'cari', 'okuma'],
+  ['#/irsaliyeler', 'İrsaliyeler', 'irs', 'irsaliye|okuma'], ['#/cariler', 'Cariler', 'cari', 'okuma'], ['#/vade', 'Vade takibi', 'vade', 'okuma'],
   ['#/hesaplar', 'Kasa ve banka', 'kasa', 'okuma'], ['#/urunler', 'Stok ve ürünler', 'urun', 'okuma|irsaliye'],
   ['#/raporlar', 'Raporlar', 'rapor', 'rapor'], ['#/ayarlar', 'Ayarlar', 'ayar', 'ayar'], ['#/yonetim', 'Yönetim', 'yonetim', 'yonetim|sistem'],
 ];
@@ -194,7 +198,7 @@ const ROTALAR = [
   [/^#\/irsaliye\/(\d+)$/, m => irsaliyeDetay(+m[1])], [/^#\/cariler$/, carilerSayfa], [/^#\/urunler(\?.*)?$/, urunlerSayfa],
   [/^#\/urun\/(\d+)$/, m => urunDetay(+m[1])], [/^#\/raporlar(\?.*)?$/, raporlarSayfa],
   [/^#\/cari\/(\d+)(\?.*)?$/, m => cariDetay(+m[1])], [/^#\/hesaplar$/, hesaplarSayfa], [/^#\/hesap\/(\d+)$/, m => hesapDetay(+m[1])],
-  [/^#\/ayarlar$/, ayarlarSayfa], [/^#\/yonetim(\?.*)?$/, yonetimSayfa], [/^#\/menu$/, menuSayfa],
+  [/^#\/vade(\?.*)?$/, vadeSayfa], [/^#\/ayarlar$/, ayarlarSayfa], [/^#\/yonetim(\?.*)?$/, yonetimSayfa], [/^#\/menu$/, menuSayfa],
 ];
 function yonlendir() {
   const h = location.hash || '#/';
@@ -228,6 +232,8 @@ async function ozetSayfa() {
       <div class="rakam"><div class="etiket">Bu ay alış</div><div class="deger sayi">${o.gelen_adet}</div><div class="alt ikincil sayi">${tl(o.gelen_toplam)}</div></div>
       <div class="rakam"><div class="etiket">Bekleyen</div><div class="deger sayi">${o.taslak + o.hatali}</div><div class="alt">${o.taslak} taslak${o.hatali ? `, ${o.hatali} hatalı` : ''}</div></div>
     </div>
+    ${o.vade?.alacak.vadesi_gecen ? `<div class="uyari-seridi"><span>Vadesi geçmiş alacak: <strong class="sayi">${tl(o.vade.alacak.vadesi_gecen)}</strong> (${o.vade.alacak.vadesi_gecen_adet} kalem)</span><a class="dugme kucuk" href="#/vade">Vade takibi</a></div>` : ''}
+    ${o.vade?.borc.vadesi_gecen ? `<div class="uyari-seridi"><span>Vadesi geçmiş borcunuz: <strong class="sayi">${tl(o.vade.borc.vadesi_gecen)}</strong> (${o.vade.borc.vadesi_gecen_adet} kalem)</span><a class="dugme kucuk" href="#/vade?y=borc">Borçları gör</a></div>` : ''}
     ${o.kritik_stok ? `<div class="uyari-seridi"><span>${o.kritik_stok} ürün kritik stok seviyesinde veya altında.</span><a class="dugme kucuk" href="#/urunler?k=1">Ürünleri gör</a></div>` : ''}
     <div class="rakamlar ucu">
       <a class="rakam" href="#/cariler"><div class="etiket">Alacaklarımız</div><div class="deger sayi">${tl(o.alacak_toplam)}</div><div class="alt">${o.alacakli_cari} cari size borçlu</div></a>
@@ -277,6 +283,7 @@ async function faturaDetay(id) {
      ${f.durum === 'GONDERILDI' && f.tip === 'EFATURA' ? `<button class="dugme" id="sorgula">Durumu yenile</button>` : ''}
      ${['GONDERILDI', 'ONAYLANDI'].includes(f.durum) ? `<button class="dugme" id="tahsil">${f.fatura_turu === 'IADE' ? 'İade bedelini tahsil et' : 'Tahsilat al'}</button><a class="dugme" href="#/cari/${f.cari_id}">Cari hesap</a>` : ''}`)}
     <div class="panel"><div class="detay-ust">${rozet(f.durum)}<span>${esc(f.durum_aciklama || (taslak ? 'Bu fatura henüz kesilmedi. Kontrol edip gönderin.' : ''))}</span></div>
+      ${!taslak ? `<p class="vade-satir">Vade: <strong>${f.vade_tarihi ? tarihTR(f.vade_tarihi) : 'Peşin'}</strong> ${f.durum !== 'HATA' ? gecikmeRozet(gecikmeGun(f.vade_tarihi || f.tarih)) : ''} <button class="dugme kucuk" id="vadeD">Vadeyi değiştir</button></p>` : f.vade_tarihi ? `<p class="ipucu">Vade: ${tarihTR(f.vade_tarihi)}</p>` : ''}
       ${f.fatura_turu === 'IADE' ? `<p class="ipucu">İade faturası – iade edilen fatura: ${f.iade_ref.map(r => esc(r.no) + ' (' + tarihTR(r.tarih) + ')').join(', ')}</p>` : ''}</div>
     <div class="panel"><div class="tablo-kap" style="border:0"><table class="liste"><thead><tr><th>Açıklama</th><th class="s">Miktar</th><th class="s gizle-m">Birim fiyat</th><th class="s gizle-m">KDV</th><th class="s">Tutar</th></tr></thead><tbody>
       ${f.satirlar.map(r => `<tr><td>${esc(r.ad)}${r.iskonto_tutar ? `<div class="ikincil">%${r.iskonto} iskonto</div>` : ''}${r.tevkifat_kod ? `<div class="ikincil">Tevkifat ${r.tevkifat_kod} – ${TEVKIFAT[r.tevkifat_kod]?.pay}/10</div>` : ''}</td><td class="s sayi">${r.miktar} ${esc(BIRIMLER[r.birim] || r.birim)}</td><td class="s sayi gizle-m">${para(r.birim_fiyat)}</td><td class="s gizle-m">%${r.kdv}</td><td class="s sayi">${para(r.matrah)}</td></tr>`).join('')}
@@ -296,6 +303,7 @@ async function faturaDetay(id) {
       .then(() => faturaDetay(id));
   };
   if ($('#tahsil')) $('#tahsil').onclick = () => hareketFormu('TAHSILAT', { cari_id: f.cari_id, cari_unvan: f.cari.unvan, tutar: Math.round(f.genel_toplam * (f.kur || 1) * 100) / 100, fatura_ref: 'satis:' + id, belge_no: f.fatura_no }, () => faturaDetay(id));
+  if ($('#vadeD')) $('#vadeD').onclick = () => vadeFormu(f.vade_tarihi, f.tarih, `/faturalar/${id}/vade`, () => faturaDetay(id));
   if ($('#sorgula')) $('#sorgula').onclick = e => calis(e.currentTarget, async () => { await api(`/faturalar/${id}/durum-sorgula`, { method: 'POST' }); faturaDetay(id); });
   if ($('#silF')) $('#silF').onclick = e => confirm('Taslak silinsin mi?') && calis(e.currentTarget, async () => { await api('/faturalar/' + id, { method: 'DELETE' }); bildir('Taslak silindi.'); location.hash = '#/faturalar'; });
 }
@@ -304,8 +312,8 @@ async function faturaDetay(id) {
 async function faturaDuzenle(id, iadeMi = false) {
   sayfa(baslik(id ? 'Taslağı düzenle' : 'Yeni fatura'));
   const [cariler, urunler, mevcut] = await Promise.all([api('/cariler'), api('/stok'), id ? api('/faturalar/' + id) : null]);
-  const f = mevcut ? { cari_id: mevcut.cari_id, tarih: mevcut.tarih, notlar: mevcut.notlar, senaryo: mevcut.senaryo, satirlar: mevcut.satirlar, fatura_turu: mevcut.fatura_turu, iade_ref: mevcut.iade_ref, para_birimi: mevcut.para_birimi || 'TRY', kur: mevcut.kur }
-    : { cari_id: null, tarih: bugun(), notlar: '', senaryo: 'TEMELFATURA', fatura_turu: iadeMi ? 'IADE' : 'SATIS', iade_ref: [], para_birimi: 'TRY', kur: '', satirlar: [{ ad: '', miktar: 1, birim: 'C62', birim_fiyat: '', kdv: 20, iskonto: 0 }] };
+  const f = mevcut ? { cari_id: mevcut.cari_id, tarih: mevcut.tarih, vade_tarihi: mevcut.vade_tarihi || '', notlar: mevcut.notlar, senaryo: mevcut.senaryo, satirlar: mevcut.satirlar, fatura_turu: mevcut.fatura_turu, iade_ref: mevcut.iade_ref, para_birimi: mevcut.para_birimi || 'TRY', kur: mevcut.kur }
+    : { cari_id: null, tarih: bugun(), vade_tarihi: '', notlar: '', senaryo: 'TEMELFATURA', fatura_turu: iadeMi ? 'IADE' : 'SATIS', iade_ref: [], para_birimi: 'TRY', kur: '', satirlar: [{ ad: '', miktar: 1, birim: 'C62', birim_fiyat: '', kdv: 20, iskonto: 0 }] };
   const ref = (f.iade_ref && f.iade_ref[0]) || { no: '', tarih: '' };
   const birimSec = b => Object.entries(BIRIMLER).map(([k, v]) => `<option value="${k}"${k === b ? ' selected' : ''}>${v}</option>`).join('');
   const kdvSec = k => [20, 10, 1, 0].map(o => `<option value="${o}"${+k === o ? ' selected' : ''}>%${o}</option>`).join('');
@@ -320,6 +328,7 @@ async function faturaDuzenle(id, iadeMi = false) {
         <div class="izgara" style="grid-template-columns:1fr 1fr">
           <div><label for="tur">Fatura türü</label><select id="tur"><option value="SATIS">Satış</option><option value="IADE"${f.fatura_turu === 'IADE' ? ' selected' : ''}>İade</option></select></div>
           <div><label for="tarih">Fatura tarihi</label><input id="tarih" type="date" value="${f.tarih}"></div>
+          <div><label for="vade">Vade tarihi</label><input id="vade" type="date" value="${f.vade_tarihi}"><div class="ipucu" id="vadeBilgi"></div></div>
           <div><label for="pb">Para birimi</label><select id="pb">${PARALAR.map(p => `<option${p === f.para_birimi ? ' selected' : ''}>${p}</option>`).join('')}</select></div>
           <div id="kurKap"><label for="kur">Kur (1 birim = ? TL)</label><div class="kur-satir"><input id="kur" type="number" step="0.0001" min="0" inputmode="decimal" value="${f.para_birimi !== 'TRY' ? f.kur ?? '' : ''}"><button type="button" class="dugme kucuk" id="tcmb">TCMB</button></div></div>
           <div id="refKap1"><label for="refNo">İade edilen fatura no</label><input id="refNo" value="${esc(ref.no)}" placeholder="ör. ABC2026000000012"></div>
@@ -349,7 +358,17 @@ async function faturaDuzenle(id, iadeMi = false) {
   if (!id && window.ONSECILI_CARI) { f.cari_id = window.ONSECILI_CARI; window.ONSECILI_CARI = null; }
   let secili = cariler.find(c => c.id === f.cari_id) || null;
   const cariAra = $('#cariAra'), cariListe = $('#cariListe');
+  // Vade elle girilmediyse carinin vade gününden hesaplanır; boşsa fatura peşin sayılır
+  let vadeElle = !!f.vade_tarihi;
+  const vadeGuncelle = () => {
+    const g = +(secili?.vade_gun || 0), t = $('#tarih').value;
+    if (!vadeElle) $('#vade').value = g > 0 && t ? gunEkle(t, g) : '';
+    $('#vadeBilgi').textContent = vadeElle ? 'Elle girildi' : g > 0 ? `Carinin vadesi: ${g} gün` : 'Boş: peşin';
+  };
+  $('#vade').oninput = () => { vadeElle = !!$('#vade').value; vadeGuncelle(); };
+  $('#tarih').addEventListener('change', vadeGuncelle);
   const tipYaz = () => {
+    vadeGuncelle();
     const tb = $('#tipBilgi');
     $('#senaryoKap').style.visibility = secili?.efatura_mukellefi ? 'visible' : 'hidden';
     if (!secili) { tb.innerHTML = ''; return; }
@@ -438,7 +457,7 @@ async function faturaDuzenle(id, iadeMi = false) {
 
   const kaydet = async gonder => {
     if (!secili) { cariAra.focus(); throw new Error('Lütfen bir müşteri seçin.'); }
-    const govde = { cari_id: secili.id, tarih: $('#tarih').value, notlar: $('#notlar').value, senaryo: $('#senaryo').value, satirlar: satirlariOku(),
+    const govde = { cari_id: secili.id, tarih: $('#tarih').value, vade_tarihi: $('#vade').value, notlar: $('#notlar').value, senaryo: $('#senaryo').value, satirlar: satirlariOku(),
       fatura_turu: $('#tur').value, iade_ref: [{ no: $('#refNo').value, tarih: $('#refTarih').value }],
       para_birimi: $('#pb').value, kur: $('#kur').value };
     const k = await api(id ? '/faturalar/' + id : '/faturalar', { method: id ? 'PUT' : 'POST', body: govde });
@@ -481,7 +500,9 @@ function cariFormu(c = {}, sonra) {
       ${alan('adres', 'Adres', c.adres, 'tam')}
       ${alan('ilce', 'İlçe', c.ilce)}${alan('il', 'İl', c.il)}
       ${alan('telefon', 'Telefon', c.telefon, 'type="tel"')}${alan('eposta', 'E-posta', c.eposta, 'type="email"')}
+      ${alan('vade_gun', 'Vade (gün)', c.vade_gun || 0, 'type="number" min="0" max="365" inputmode="numeric"')}
     </div>
+    <p class="ipucu">Vade: faturaya vade tarihi girilmezse fatura tarihine bu kadar gün eklenir. 0: peşin.</p>
     <p class="ipucu">Şahıslar için TCKN girin; e-Arşiv fatura e-posta adresine gönderilir.</p>
     <div class="pencere-alt"><div>${c.id ? `<button type="button" class="dugme tehlike" id="silC">Sil</button>` : ''}</div>
     <div class="dugmeler"><button type="button" class="dugme" data-kapat>Vazgeç</button><button class="dugme ana">Kaydet</button></div></div></form>`);
@@ -1062,6 +1083,7 @@ async function alisDetay(id) {
      ${g.cari_id ? `<button class="dugme" id="odeme">Ödeme yap</button><a class="dugme" href="#/cari/${g.cari_id}">Cari hesap</a>` : ''}
      ${!g.irsaliyeler.length && g.satirlar.length ? `<button class="dugme" id="stokaAl">Stoka al</button>` : ''}
      ${g.tip !== 'IADE' ? `<button class="dugme ana" id="iade">İade faturası kes</button>` : ''}`)}
+    <div class="panel"><p class="vade-satir" style="margin:0">Vade: <strong>${g.vade_tarihi ? tarihTR(g.vade_tarihi) : 'Peşin'}</strong> ${gecikmeRozet(gecikmeGun(g.vade_tarihi || g.tarih))} <button class="dugme kucuk" id="vadeD">Vadeyi değiştir</button></p></div>
     <div class="panel"><h2>İrsaliyeler</h2>
       ${g.irsaliyeler.length ? `<ul class="duz-liste">${g.irsaliyeler.map(x => `<li><a href="#/irsaliye/${x.id}">${esc(x.irsaliye_no)}</a> – ${tarihTR(x.tarih)} <span class="ipucu">${esc(x.eslesme_aciklama || '')}</span></li>`).join('')}</ul>`
         : `<p class="ipucu">Bu faturayla eşleşmiş irsaliye yok.${g.irsaliye_nolar.length ? ' Faturada geçen irsaliye no: ' + g.irsaliye_nolar.map(esc).join(', ') + '. Bu irsaliyenin fotoğrafını yüklediğinizde otomatik eşleşir.' : ''}</p>`}
@@ -1075,6 +1097,7 @@ async function alisDetay(id) {
     ${g.fotolar.length ? `<div class="panel"><h2>Fotoğraflar</h2>${fotoSeridi(g.fotolar)}</div>` : ''}
     ${g.iadeler.length ? `<div class="panel"><h2>Bu faturaya kesilen iadeler</h2><ul class="duz-liste">${g.iadeler.map(x => `<li><a href="#/fatura/${x.id}">${esc(x.fatura_no || 'Taslak')}</a> – ${tl(x.genel_toplam)} ${rozet(x.durum)}</li>`).join('')}</ul></div>` : ''}
     ${g.kaynak === 'manuel' ? `<div style="margin-top:16px"><button class="dugme tehlike" id="silG">${ik('sil')}Faturayı sil</button></div>` : ''}`);
+  $('#vadeD').onclick = () => vadeFormu(g.vade_tarihi, g.tarih, `/gelen/${id}/vade`, () => alisDetay(id));
   if ($('#stokaAl')) $('#stokaAl').onclick = () => stokaAlFormu(id, () => alisDetay(id));
   if ($('#odeme')) $('#odeme').onclick = () => hareketFormu('ODEME', { cari_id: g.cari_id, cari_unvan: g.gonderen_unvan, tutar: g.tutar, fatura_ref: 'alis:' + id, belge_no: g.fatura_no }, () => alisDetay(id));
   if ($('#iade')) $('#iade').onclick = e => calis(e.currentTarget, async () => {
@@ -1096,6 +1119,7 @@ async function alisElle() {
       <div class="izgara" style="margin-top:14px">
         <div><label for="no">Fatura no</label><input id="no" required style="text-transform:uppercase"></div>
         <div><label for="tarih">Fatura tarihi</label><input id="tarih" type="date" value="${bugun()}" required></div>
+        <div><label for="vade">Vade tarihi</label><input id="vade" type="date"><div class="ipucu">Boş bırakırsanız tedarikçinin vade günü uygulanır.</div></div>
         <div><label for="irs">İrsaliye no (varsa, virgülle)</label><input id="irs"></div>
         <div><label for="tutar">Genel toplam (satır girmeyecekseniz)</label><input id="tutar" type="number" step="any" min="0" inputmode="decimal"></div>
       </div>
@@ -1126,7 +1150,7 @@ async function alisElle() {
   $('#form', s).onsubmit = e => {
     e.preventDefault();
     calis(e.submitter, async () => {
-      const g = await api('/gelen', { method: 'POST', body: { ...tedarikci(), fatura_no: $('#no').value, tarih: $('#tarih').value,
+      const g = await api('/gelen', { method: 'POST', body: { ...tedarikci(), fatura_no: $('#no').value, tarih: $('#tarih').value, vade_tarihi: $('#vade').value,
         irsaliye_nolar: $('#irs').value, tutar: $('#tutar').value, notlar: $('#not').value, satirlar: kalemler(), fotolar } });
       bildir('Alış faturası kaydedildi.'); location.hash = '#/alis/' + g.id;
     });
@@ -1183,8 +1207,8 @@ async function cariDetay(id) {
   const bas = q.get('bas') ?? '', bit = q.get('bit') ?? '';
   const [c, e] = await Promise.all([api('/cariler/' + id), api(`/cariler/${id}/ekstre?bas=${bas}&bit=${bit}`)]);
   const b = c.bakiye;
-  const s = sayfa(`${baslik(esc(c.unvan), `${CTUR[c.tur] || ''}${c.vkn ? ' – ' + (c.vkn.length === 11 ? 'TCKN ' : 'VKN ') + esc(c.vkn) : ''}${c.telefon ? ' – ' + esc(c.telefon) : ''}`,
-      `<button class="dugme" id="duzenle">Bilgileri düzenle</button>`)}
+  const s = sayfa(`${baslik(esc(c.unvan), `${CTUR[c.tur] || ''}${c.vkn ? ' – ' + (c.vkn.length === 11 ? 'TCKN ' : 'VKN ') + esc(c.vkn) : ''}${c.telefon ? ' – ' + esc(c.telefon) : ''}${c.vade_gun ? ' – vade ' + c.vade_gun + ' gün' : ''}`,
+      `<a class="dugme" href="#/vade?cari=${id}${b < -0.004 ? '&y=borc' : ''}">Açık faturalar</a><button class="dugme" id="duzenle">Bilgileri düzenle</button>`)}
     <div class="bakiye-kart ${b > 0.004 ? 'alacakli' : b < -0.004 ? 'borclu' : ''}">
       <div><div class="etiket">${b > 0.004 ? 'Size borçlu' : b < -0.004 ? 'Siz borçlusunuz' : 'Hesap kapalı'}</div><div class="deger sayi">${tl(Math.abs(b))}</div></div>
       <div class="dugmeler"><button class="dugme ana" data-h="TAHSILAT">Tahsilat al</button><button class="dugme" data-h="ODEME">Ödeme yap</button>
@@ -1270,3 +1294,37 @@ async function hesapDetay(id) {
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 baslat();
+
+// ------------------------------------------------------------------ Vade takibi
+function vadeFormu(mevcut, faturaTarihi, yol, sonra) {
+  const { p, kapat } = pencere(`<form>${baslik('Vadeyi değiştir', 'Yalnızca vade takibini etkiler; gönderilmiş faturanın kendisi değişmez.')}
+    <label for="yeniVade">Vade tarihi</label><input id="yeniVade" type="date" min="${faturaTarihi}" value="${mevcut || ''}">
+    <p class="ipucu">Boş bırakırsanız fatura peşin sayılır (vade = fatura tarihi).</p>
+    <div class="pencere-alt"><div></div><div class="dugmeler"><button type="button" class="dugme" data-kapat>Vazgeç</button><button class="dugme ana">Kaydet</button></div></div></form>`);
+  $('form', p).onsubmit = e => {
+    e.preventDefault();
+    calis(e.submitter, async () => { await api(yol, { method: 'PUT', body: { vade_tarihi: $('#yeniVade', p).value } }); kapat(); bildir('Vade güncellendi.'); sonra(); });
+  };
+}
+
+async function vadeSayfa() {
+  sayfa(baslik('Vade takibi'));
+  const q = new URLSearchParams(location.hash.split('?')[1] || '');
+  const yon = q.get('y') === 'borc' ? 'borc' : 'alacak', cari = +q.get('cari') || 0, grup = q.get('g') || '';
+  const r = await api('/vade' + (cari ? '?cari_id=' + cari : ''));
+  const tum = yon === 'borc' ? r.borclar : r.alacaklar, oz = r.ozet[yon];
+  const liste = grup ? tum.filter(x => x.grup === grup) : tum;
+  const git = (y = yon, g = '') => '#/vade?' + new URLSearchParams({ ...(y === 'borc' ? { y } : {}), ...(cari ? { cari } : {}), ...(g ? { g } : {}) });
+  const cariAd = cari && (r.alacaklar[0] || r.borclar[0])?.cari_unvan;
+  const s = sayfa(`${baslik('Vade takibi', cari ? `${esc(cariAd || 'Bu cari')} için açık faturalar – <a href="#/vade${yon === 'borc' ? '?y=borc' : ''}">tüm cariler</a>`
+      : 'Ödenmemiş faturalar. Tahsilat ve ödemeler önce en eski vadeli faturayı kapatır.')}
+    <div class="dugmeler" style="margin-bottom:14px"><div class="sekmeler"><a class="${yon === 'alacak' ? 'aktif' : ''}" href="${git('alacak')}">Alacaklarımız (${tl(r.ozet.alacak.toplam)})</a><a class="${yon === 'borc' ? 'aktif' : ''}" href="${git('borc')}">Borçlarımız (${tl(r.ozet.borc.toplam)})</a></div></div>
+    <div class="yaslandirma">${Object.entries(r.gruplar).map(([k, ad]) => `<a href="${git(yon, grup === k ? '' : k)}" class="${grup === k ? 'secili ' : ''}${k !== 'gelmedi' && oz.gruplar[k] ? 'gecmis' : ''}"><span>${ad}</span><strong class="sayi">${tl(oz.gruplar[k])}</strong></a>`).join('')}</div>
+    ${!liste.length ? `<div class="panel bos"><p>${grup ? 'Bu grupta' : yon === 'alacak' ? 'Açık alacak' : 'Açık borç'} yok.</p></div>`
+      : `<div class="tablo-kap"><table class="liste vade-tablo"><thead><tr><th>Cari</th><th class="gizle-m">Belge</th><th class="gizle-m">Tarih</th><th>Vade</th><th class="s gizle-m">Tutar</th><th class="s">Açık</th></tr></thead><tbody>
+      ${liste.map(x => `<tr class="tik" data-git="${x.kaynak === 'fatura' ? '#/fatura/' + x.kaynak_id : x.kaynak === 'alis' ? '#/alis/' + x.kaynak_id : '#/cari/' + x.cari_id}">
+        <td>${esc(x.cari_unvan)}<div class="ikincil">${esc(x.islem)} ${esc(x.belge_no || '')}</div></td><td class="gizle-m sayi">${esc(x.belge_no || '')}</td><td class="gizle-m">${tarihTR(x.tarih)}</td>
+        <td>${tarihTR(x.vade)}<div>${gecikmeRozet(x.gecikme)}</div></td><td class="s sayi gizle-m">${para(x.tutar)}</td><td class="s sayi"><strong>${para(x.acik)}</strong>${x.acik < x.tutar ? '<div class="ikincil">kısmen ödendi</div>' : ''}</td></tr>`).join('')}
+      </tbody><tfoot><tr><td>Toplam</td><td class="gizle-m"></td><td class="gizle-m"></td><td></td><td class="gizle-m"></td><td class="s sayi">${para(liste.reduce((t, x) => t + x.acik, 0))}</td></tr></tfoot></table></div>`}`);
+  $$('tr[data-git]', s).forEach(tr => tr.onclick = () => location.hash = tr.dataset.git);
+}

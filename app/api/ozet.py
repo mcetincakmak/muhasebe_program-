@@ -9,6 +9,7 @@ from ..servisler import stok
 from .cari_hesap import ozet_bilgi
 
 from .faturalar import faturalar
+from .vade import vade_ozeti
 
 router = APIRouter()
 
@@ -38,6 +39,6 @@ def ozet():
             "gelen_adet": g["adet"], "gelen_toplam": g["toplam"], "taslak": taslak, "hatali": hatali,
             "mod": aktif_mod(), "firma_tamam": bool(firma()["vkn"]),
             "son": faturalar()[:5], "irsaliye": irs, "son_tarama": db.ayar_al("son_tarama", ""), **ozet_bilgi(),
-            "kritik_stok": stok.kritik_sayisi()}
+            "kritik_stok": stok.kritik_sayisi(), "vade": vade_ozeti()}
 
 

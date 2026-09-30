@@ -152,9 +152,17 @@ def _f2_entegrator_ayarlari(con):
     con.execute("DROP TABLE IF EXISTS oturumlar")
 
 
+def _f3_vade(con):
+    """Vade takibi: carinin varsayılan vade günü, satış ve alış faturalarında vade tarihi."""
+    con.execute("ALTER TABLE cariler ADD COLUMN vade_gun INTEGER DEFAULT 0")
+    con.execute("ALTER TABLE faturalar ADD COLUMN vade_tarihi TEXT")
+    con.execute("ALTER TABLE gelen_faturalar ADD COLUMN vade_tarihi TEXT")
+
+
 FIRMA_GOCLERI = [
     (1, "İlk şema", _f1_ilk_sema),
     (2, "Entegratör ayarları genelleştirildi", _f2_entegrator_ayarlari),
+    (3, "Vade takibi", _f3_vade),
 ]
 
 

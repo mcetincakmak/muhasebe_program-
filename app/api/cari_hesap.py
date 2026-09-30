@@ -28,13 +28,14 @@ CARI_KALEMLER = """
 SELECT 'fatura' AS kaynak, f.id AS kaynak_id, f.cari_id, f.tarih,
        CASE WHEN f.fatura_turu='IADE' THEN 'İade faturası' ELSE 'Satış faturası' END AS islem,
        f.fatura_no AS belge_no, CASE WHEN f.para_birimi!='TRY' THEN f.para_birimi || ' ' || printf('%.2f', f.genel_toplam) || ' × ' || f.kur ELSE '' END AS aciklama,
-       ROUND(f.genel_toplam*COALESCE(f.kur,1), 2) AS borc, 0 AS alacak, 1 AS oncelik
+       ROUND(f.genel_toplam*COALESCE(f.kur,1), 2) AS borc, 0 AS alacak, 1 AS oncelik,
+       COALESCE(f.vade_tarihi, f.tarih) AS vade
   FROM faturalar f WHERE f.durum IN ('GONDERILDI','ONAYLANDI') AND f.cari_id IS NOT NULL
 UNION ALL
 SELECT 'alis', g.id, g.cari_id, g.tarih,
        CASE WHEN g.tip='IADE' THEN 'Gelen iade faturası' ELSE 'Alış faturası' END,
        g.fatura_no, CASE WHEN COALESCE(g.para_birimi,'TRY')!='TRY' THEN g.para_birimi || ' ' || printf('%.2f', g.tutar) || ' × ' || g.kur ELSE '' END,
-       0, ROUND(g.tutar*COALESCE(g.kur,1), 2), 1
+       0, ROUND(g.tutar*COALESCE(g.kur,1), 2), 1, COALESCE(g.vade_tarihi, g.tarih)
   FROM gelen_faturalar g WHERE g.cari_id IS NOT NULL
 UNION ALL
 SELECT 'hareket', h.id, h.cari_id, h.tarih,
@@ -43,7 +44,7 @@ SELECT 'hareket', h.id, h.cari_id, h.tarih,
        h.belge_no, h.aciklama,
        CASE WHEN h.tur IN ('ODEME','DEVIR_BORC') THEN h.tutar ELSE 0 END,
        CASE WHEN h.tur IN ('TAHSILAT','DEVIR_ALACAK') THEN h.tutar ELSE 0 END,
-       CASE WHEN h.tur LIKE 'DEVIR%' THEN 0 ELSE 2 END
+       CASE WHEN h.tur LIKE 'DEVIR%' THEN 0 ELSE 2 END, h.tarih
   FROM hareketler h WHERE h.cari_id IS NOT NULL AND h.tur IN ('TAHSILAT','ODEME','DEVIR_BORC','DEVIR_ALACAK')
 """
 

@@ -16,6 +16,7 @@ router = APIRouter()
 
 
 from ..servisler.tarama import tarama_yap
+from ..servisler.vade import vade_belirle
 from .belgeler import _fotolari_kaydet
 from .faturalar import fatura_olustur
 
@@ -100,20 +101,34 @@ def gelen_elle(v: dict):
         c = con.execute("SELECT * FROM cariler WHERE id=?", (cari_id,)).fetchone()
         if c["tur"] == "musteri":
             con.execute("UPDATE cariler SET tur='ikisi' WHERE id=?", (cari_id,))
+        vade = vade_belirle(con, cari_id, v["tarih"], (v.get("vade_tarihi") or "").strip())
         irs_nolar = sorted({re.sub(r"\s", "", x).upper() for x in (v.get("irsaliye_nolar") or "").split(",") if x.strip()})
         cur = con.execute(
             "INSERT INTO gelen_faturalar(uuid,fatura_no,gonderen_unvan,gonderen_vkn,tarih,tutar,para_birimi,cari_id,"
-            "satirlar_json,irsaliye_nolar,kaynak,matrah,kdv_toplam,fotolar_json,notlar,tip) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "satirlar_json,irsaliye_nolar,kaynak,matrah,kdv_toplam,fotolar_json,notlar,tip,vade_tarihi) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             ("MANUEL-" + uuidlib.uuid4().hex, no, c["unvan"], c["vkn"], v["tarih"], tutar, "TRY", cari_id,
              json.dumps([{"ad": s["ad"], "miktar": s.get("miktar"), "birim": BIRIMLER.get(s.get("birim"), s.get("birim")),
                           "birim_fiyat": s.get("birim_fiyat"), "kdv": s.get("kdv"), "tutar": s.get("matrah")}
                          for s in (h["satirlar"] if h else [])], ensure_ascii=False),
              json.dumps(irs_nolar), "manuel", h["matrah"] if h else None, h["kdv_toplam"] if h else None,
              json.dumps([x for x in v.get("fotolar") or [] if re.match(r"^[\w.-]+$", str(x))]),
-             v.get("notlar") or "", "SATIS"))
+             v.get("notlar") or "", "SATIS", vade))
         gid = cur.lastrowid
     eslestir()
+    return gelen_detay(gid)
+
+
+@router.put("/api/gelen/{gid}/vade")
+def gelen_vade(gid: int, v: dict):
+    """Alış faturasının vade tarihini değiştirir. Boş gönderilirse vade = fatura tarihi."""
+    with db.islem() as con:
+        r = con.execute("SELECT tarih FROM gelen_faturalar WHERE id=?", (gid,)).fetchone()
+        if not r:
+            hata("Fatura bulunamadı.", 404)
+        vade = (v.get("vade_tarihi") or "").strip()
+        con.execute("UPDATE gelen_faturalar SET vade_tarihi=? WHERE id=?",
+                    (vade_belirle(con, None, r["tarih"], vade) if vade else None, gid))
     return gelen_detay(gid)
 
 

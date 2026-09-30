@@ -8,6 +8,14 @@ from ..core import db
 from ..core.ortak import TARAMA_KILIDI, hata
 from .eslestirme import cari_bul_veya_olustur, eslestir
 from .ubl import xml_ozet, xml_satirlar
+from .vade import vade_belirle
+
+
+def _vade(con, cari_id, oz):
+    """Faturadaki vade tarihi; yoksa (veya fatura tarihinden önceyse) tedarikçinin vade günü."""
+    if oz["vade_tarihi"] and oz["vade_tarihi"] >= oz["tarih"]:
+        return oz["vade_tarihi"]
+    return vade_belirle(con, cari_id, oz["tarih"])
 
 
 def _gelen_kaydet(con, ent_id, xml):
@@ -17,12 +25,13 @@ def _gelen_kaydet(con, ent_id, xml):
     cari_id = cari_bul_veya_olustur(con, oz["taraf"], "tedarikci", "efatura")
     con.execute(
         "INSERT INTO gelen_faturalar(uuid,fatura_no,gonderen_unvan,gonderen_vkn,tarih,tutar,para_birimi,entegrator_id,xml,"
-        "cari_id,satirlar_json,irsaliye_nolar,kaynak,matrah,kdv_toplam,tip,kur,tevkifat_toplam) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "cari_id,satirlar_json,irsaliye_nolar,kaynak,matrah,kdv_toplam,tip,kur,tevkifat_toplam,vade_tarihi) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (oz["uuid"], oz["fatura_no"], oz["gonderen_unvan"], oz["gonderen_vkn"], oz["tarih"], oz["tutar"],
          oz["para_birimi"], ent_id, xml, cari_id, json.dumps(xml_satirlar(xml), ensure_ascii=False),
          json.dumps(oz["irsaliye_nolar"]), "efatura", oz["matrah"], oz["kdv_toplam"], oz["tip"] or "SATIS",
-         oz["kur"] if oz["para_birimi"] != "TRY" else 1, oz["tevkifat_toplam"]))
+         oz["kur"] if oz["para_birimi"] != "TRY" else 1, oz["tevkifat_toplam"],
+         _vade(con, cari_id, oz)))
     return True
 
 

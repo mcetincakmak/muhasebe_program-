@@ -11,6 +11,7 @@ from ..core import db
 from ..core.ortak import GONDERIM_KILIDI, firma, hata
 from ..entegrator import EntegratorHatasi
 from ..servisler import stok
+from ..servisler.vade import vade_belirle
 from ..servisler.ubl import (BIRIMLER, PARA_BIRIMLERI, TEVKIFAT_KODLARI, fatura_xml, hesapla)
 
 router = APIRouter()
@@ -81,6 +82,7 @@ def _fatura_veri(v, con):
         "cari_id": cari["id"], "cari_json": json.dumps(dict(cari), ensure_ascii=False),
         "satirlar_json": json.dumps(h["satirlar"], ensure_ascii=False),
         "tarih": tarih, "notlar": v.get("notlar") or "",
+        "vade_tarihi": vade_belirle(con, cari["id"], tarih, (v.get("vade_tarihi") or "").strip()),
         "senaryo": v.get("senaryo") if v.get("senaryo") in ("TEMELFATURA", "TICARIFATURA") else "TEMELFATURA",
         "tip": "EFATURA" if cari["efatura_mukellefi"] else "EARSIV",
         "brut_toplam": h["brut_toplam"], "iskonto_toplam": h["iskonto_toplam"], "matrah": h["matrah"],
@@ -203,6 +205,18 @@ def _fatura_gonder(fid: int):
                     (sonuc["durum"], sonuc["aciklama"], sonuc["id"], datetime.now().isoformat(timespec="seconds"), fid))
         stok.kaynak_yaz(con, "fatura", fid, f["tarih"], f["satirlar"], -1,
                         "ALIS_IADE" if f["fatura_turu"] == "IADE" else "SATIS")
+        return _fatura_getir(con, fid)
+
+
+@router.put("/api/faturalar/{fid}/vade")
+def fatura_vade(fid: int, v: dict):
+    """Vade tarihini değiştirir (ör. müşteriyle yeni ödeme günü konuşuldu). Gönderilmiş XML değişmez;
+    yalnızca vade takibi bu tarihi kullanır. Boş gönderilirse vade = fatura tarihi."""
+    with db.islem() as con:
+        f = _fatura_getir(con, fid)
+        vade = (v.get("vade_tarihi") or "").strip()
+        con.execute("UPDATE faturalar SET vade_tarihi=? WHERE id=?",
+                    (vade_belirle(con, None, f["tarih"], vade) if vade else None, fid))
         return _fatura_getir(con, fid)
 
 

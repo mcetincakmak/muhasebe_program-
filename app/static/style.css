@@ -289,3 +289,19 @@ a.rakam:hover { border-color: var(--soluk); }
 .test-liste li { padding: 6px 0; } .test-liste li.ok strong { color: var(--ana); } .test-liste li.hata strong { color: var(--hata); }
 code { background: #EDF1EE; padding: 1px 6px; border-radius: 4px; font-size: 13px; word-break: break-all; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Vade takibi */
+.sekmeler a { font-size: 14px; padding: 6px 12px; border-radius: 7px; color: var(--soluk); text-decoration: none; }
+.sekmeler a.aktif { background: var(--yuzey); color: var(--murekkep); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.yaslandirma { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 18px; }
+.yaslandirma a { background: var(--yuzey); border: 1px solid #E1E6E3; border-radius: var(--r); padding: 10px 12px; text-decoration: none; color: var(--murekkep); display: flex; flex-direction: column; gap: 4px; }
+.yaslandirma a span { font-size: 13px; color: var(--soluk); }
+.yaslandirma a.gecmis strong { color: var(--hata); }
+.yaslandirma a.secili { outline: 2px solid var(--ana); }
+.vade-satir { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; }
+@media (max-width: 700px) { .yaslandirma { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) {
+  .vade-tablo td { padding: 10px 8px; }
+  .vade-tablo .ikincil { overflow-wrap: anywhere; }
+  .vade-tablo .rozet { white-space: normal; }
+}
