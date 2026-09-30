@@ -4,3 +4,4 @@ __pycache__/
 veri/
 # Lisans özel anahtarı yalnızca satıcıda kalır, asla depoya girmez
 *.pem
+tessdata/
