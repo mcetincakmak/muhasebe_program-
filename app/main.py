@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import gorevler
 from .api import (alis, ayarlar, belgeler, cari_hesap, cariler, faturalar, goruntule, irsaliyeler, ozet, raporlar,
-                  sistem, stok, urunler)
+                  sistem, stok, urunler, vade)
 from .core import gocler
 from .core.guvenlik import oturum
 from .entegrator import EntegratorHatasi
@@ -63,7 +63,7 @@ def _okuma_hatasi(_, exc):
 app.include_router(sistem.acik)
 app.include_router(sistem.router)
 for modul in (cariler, urunler, faturalar, alis, belgeler, irsaliyeler, ayarlar, ozet, goruntule,
-              cari_hesap, stok, raporlar):
+              cari_hesap, stok, raporlar, vade):
     app.include_router(modul.router, dependencies=[Depends(oturum)])
 
 gocler.hepsini_hazirla()

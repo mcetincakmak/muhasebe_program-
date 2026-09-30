@@ -13,7 +13,7 @@ router = APIRouter()
 
 # ------------------------------------------------------------------ cariler
 CARI_ALANLARI = ["unvan", "vkn", "vergi_dairesi", "ad", "soyad", "adres", "ilce", "il", "ulke",
-                 "telefon", "eposta", "notlar", "tur"]
+                 "telefon", "eposta", "notlar", "tur", "vade_gun"]
 
 
 def _cari_dogrula(v):
@@ -21,6 +21,13 @@ def _cari_dogrula(v):
         v["tur"] = "musteri"
     if not (v.get("unvan") or "").strip():
         hata("Ünvan / ad soyad boş olamaz.")
+    try:
+        gun = int(str(v.get("vade_gun") or 0).strip() or 0)
+    except ValueError:
+        gun = -1
+    if not 0 <= gun <= 365:
+        hata("Vade günü 0 ile 365 arasında bir sayı olmalı.")
+    v["vade_gun"] = str(gun)
     vkn = (v.get("vkn") or "").strip()
     if vkn and (not vkn.isdigit() or len(vkn) not in (10, 11)):
         hata("VKN 10, TCKN 11 haneli olmalı.")

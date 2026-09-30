@@ -93,7 +93,7 @@ def test_irsaliye_fotograf_ve_eslestirme(c):
         pytest.skip("örnek irsaliye görüntüsü yok")
     foto = "data:image/jpeg;base64," + base64.b64encode(open(yol, "rb").read()).decode()
     i = c.post("/api/irsaliyeler/yukle", json={"fotolar": [foto]}).json()
-    assert i["irsaliye_no"] == "GKI2026000000031"
+    assert i["irsaliye_no"] == "GKI2026000000031", i.get("okuma")
     c.post("/api/tarama")
     assert c.get(f"/api/irsaliyeler/{i['id']}").json()["durum"] == "ESLESTI"
     # aynı irsaliye ikinci kez kaydedilemez
@@ -236,3 +236,21 @@ def test_lisans_siniri_yeniden_etkinlestirmede_de_gecerli(c):
     assert c.post("/api/firmalar", json={"unvan": "Üçüncü Firma"}).status_code == 200
     r = c.put(f"/api/firmalar/{diger['id']}", json={"aktif": True})
     assert r.status_code == 400 and "firma" in r.json()["detail"]
+
+
+def test_turkce_ocr_dosyalari_kurulumun_indirdigi_yerde_aranir():
+    # kurulum.ps1 dil dosyalarını kendi klasöründeki tessdata'ya indirir; program da orada aramalı
+    from app.servisler.okuma import YEREL_TESSDATA
+    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    assert os.path.isfile(os.path.join(kok, "kurulum.ps1"))
+    assert os.path.normcase(YEREL_TESSDATA) == os.path.normcase(os.path.join(kok, "tessdata"))
+
+
+def test_tessdata_yolu_komut_satirina_tirnakla_verilmez(tmp_path, monkeypatch):
+    # pytesseract Windows'ta ayar metnini tırnakları silmeden böler; yol ortam değişkeniyle verilmeli
+    from app.servisler import okuma
+    (tmp_path / "tur.traineddata").write_bytes(b"x")
+    monkeypatch.setattr(okuma, "YEREL_TESSDATA", str(tmp_path))
+    monkeypatch.delenv("TESSDATA_PREFIX", raising=False)
+    okuma._yerel_tessdata_kullan()
+    assert os.environ["TESSDATA_PREFIX"] == str(tmp_path)

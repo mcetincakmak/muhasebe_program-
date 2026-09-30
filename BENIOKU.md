@@ -74,6 +74,14 @@ Tüm veriler `veri` klasöründe durur (`fatura.db` ve irsaliye fotoğrafları).
 - **Hesaplar arası transfer:** Kasadaki parayı bankaya yatırmak gibi.
 - **Ekstre:** Cari sayfasında tarih aralığı seçip **Yazdır / PDF** ile mutabakat için karşı tarafa gönderebilirsiniz.
 
+## Vade takibi
+
+- **Cari vade günü:** Cari kartında **Vade (gün)** girin (ör. 30). Bu cariye kesilen veya ondan gelen faturada vade tarihi girilmezse fatura tarihine bu kadar gün eklenir. 0 ise fatura peşin sayılır.
+- **Faturada vade:** Satış ve alış faturası ekranında vade tarihini elle de girebilirsiniz. Kestiğiniz e-Faturada vade tarihi XML'e (ödeme vadesi) yazılır; gelen e-faturada vade varsa otomatik okunur.
+- **Vade takibi sayfası:** Ödenmemiş alacak ve borçlarınızı, kaç gün geciktiklerini ve 1-30 / 31-60 / 61-90 / 90+ gün gruplarını gösterir. Özet ekranında vadesi geçen tutar için uyarı çıkar.
+- **Tahsilat ve ödemeler faturaya ayrıca bağlanmaz:** her carinin hesabında önce en eski vadeli fatura kapanır. Kısmen ödenmiş fatura "kısmen ödendi" olarak görünür. Açık faturaların toplamı her zaman cari bakiyesine eşittir.
+- **Vadeyi değiştirme:** Müşteriyle yeni bir ödeme günü konuştuysanız fatura sayfasında **Vadeyi değiştir**. Gönderilmiş faturanın kendisi değişmez; yalnızca takip bu tarihi kullanır.
+
 ## Stok
 
 - Ürün kartında **Türü**: stoklu ürün veya hizmet (hizmette stok tutulmaz). İsteğe bağlı **kritik stok seviyesi** girin; altına düşünce özet ekranında uyarı çıkar.
@@ -107,13 +115,14 @@ Tüm veriler `veri` klasöründe durur (`fatura.db` ve irsaliye fotoğrafları).
 - Alış faturaları: günlük otomatik e-fatura çekme, elle/fotoğraftan giriş
 - İrsaliyeler: fotoğraftan okuma (OCR), elle giriş, otomatik ve onaylı eşleştirme
 - Cari hesap: bakiye, ekstre (yazdırılabilir), açılış bakiyesi, tahsilat ve ödeme
+- Vade takibi: cari bazında vade günü, faturalarda vade tarihi, vadesi geçen alacak/borç ve yaşlandırma
 - Kasa ve banka: birden çok hesap, masraf/gelir, hesaplar arası transfer
 - Stok: irsaliyeden otomatik giriş, satıştan otomatik çıkış, kritik seviye, sayım, ortalama maliyet
 - Raporlar: aylık grafik, brüt kâr, KDV, nakit; 8 sayfalık Excel çıktısı
 - Tevkifatlı ve dövizli (USD/EUR/GBP, TCMB kuru) fatura
 - Tek tıkla yedek, tek tıkla kurulum, telefondan her yerden güvenli erişim (Tailscale)
 
-**Henüz olmayanlar:** çek/senet takibi, vade takibi, kur farkı faturası, özel matrah, e-İrsaliye kesme. %0 KDV'de varsayılan istisna kodu 351'dir; farklı bir istisna uyguluyorsanız mali müşavirinize danışın.
+**Henüz olmayanlar:** çek/senet takibi, kur farkı faturası, özel matrah, e-İrsaliye kesme. %0 KDV'de varsayılan istisna kodu 351'dir; farklı bir istisna uyguluyorsanız mali müşavirinize danışın.
 
 ## Güvenlik
 

@@ -1,6 +1,7 @@
-.venv/
+.venv
 __pycache__/
 .pytest_cache/
 veri/
 # Lisans özel anahtarı yalnızca satıcıda kalır, asla depoya girmez
 *.pem
+tessdata/

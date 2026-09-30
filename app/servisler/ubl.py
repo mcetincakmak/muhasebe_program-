@@ -217,6 +217,10 @@ def fatura_xml(fatura, firma, cari):
 
     _taraf(_e(inv, "cac:AccountingSupplierParty"), firma)
     _taraf(_e(inv, "cac:AccountingCustomerParty"), cari)
+    if fatura.get("vade_tarihi"):
+        pm = _e(inv, "cac:PaymentMeans")
+        _e(pm, "cbc:PaymentMeansCode", "1")  # UN/ECE 4461: tanımsız ödeme şekli
+        _e(pm, "cbc:PaymentDueDate", fatura["vade_tarihi"])
     if para != "TRY":
         per = _e(inv, "cac:PricingExchangeRate")
         _e(per, "cbc:SourceCurrencyCode", para)
@@ -325,7 +329,9 @@ def xml_ozet(xml_metni):
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", tarih):
         raise ValueError(f"Fatura tarihi geçersiz: {tarih[:20]!r}")
     para_birimi = tutar_el.get("currencyID", "TRY") if tutar_el is not None else "TRY"
+    vade = _metin(root, "PaymentMeans/PaymentDueDate") or _metin(root, "PaymentTerms/PaymentDueDate")
     return {
+        "vade_tarihi": vade if re.match(r"^\d{4}-\d{2}-\d{2}$", vade) else None,
         "tevkifat_toplam": sayi(tev), "kur": sayi(kur) or 1.0,
         "irsaliye_nolar": sorted({re.sub(r"[^A-Z0-9\-/]", "", i.strip().upper())[:40] for i in irs if i and i.strip()}),
         "taraf": taraf, "matrah": sayi(matrah), "kdv_toplam": sayi(kdv),
