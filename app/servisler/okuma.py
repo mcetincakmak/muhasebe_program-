@@ -130,10 +130,12 @@ WINDOWS_YOLLARI = [
 YEREL_TESSDATA = os.path.join(KOK, "tessdata")
 
 
-def _tess_ayar():
+def _yerel_tessdata_kullan():
+    """Program klasöründeki dil dosyaları varsa Tesseract'a onları kullandırır.
+    Yol "--tessdata-dir" ile değil ortam değişkeniyle verilir: pytesseract Windows'ta komut satırı
+    ayarlarındaki tırnakları silmez, Tesseract tırnaklı yolu bulamaz ve OCR boş döner."""
     if os.path.isfile(os.path.join(YEREL_TESSDATA, "tur.traineddata")):
-        return f'--tessdata-dir "{YEREL_TESSDATA}"'
-    return ""
+        os.environ["TESSDATA_PREFIX"] = YEREL_TESSDATA
 
 
 def tesseract_bul(ayar_yolu=None):
@@ -155,10 +157,10 @@ def ocr_metin(fotolar, tesseract_yolu=None):
         raise OkumaHatasi("Tesseract bulunamadı. Kurulum kılavuzundaki Tesseract adımını yapın "
                           "veya Ayarlar'da tesseract.exe yolunu girin.")
     pytesseract.pytesseract.tesseract_cmd = yol
-    ek = _tess_ayar()
+    _yerel_tessdata_kullan()
     diller = "tur+eng"
     try:
-        mevcut = pytesseract.get_languages(config=ek)
+        mevcut = pytesseract.get_languages()
         if "tur" not in mevcut:
             diller = "eng"
         elif "eng" not in mevcut:
@@ -176,13 +178,13 @@ def ocr_metin(fotolar, tesseract_yolu=None):
             img = img.resize((int(img.width * oran), int(img.height * oran)))
         img = ImageOps.autocontrast(img, cutoff=1)
         try:
-            osd = pytesseract.image_to_osd(img, config=ek, output_type=pytesseract.Output.DICT, timeout=30)
+            osd = pytesseract.image_to_osd(img, output_type=pytesseract.Output.DICT, timeout=30)
             if osd.get("rotate"):
                 img = img.rotate(-osd["rotate"], expand=True)
         except Exception:
             pass
         try:
-            sayfalar.append(pytesseract.image_to_string(img, lang=diller, config=f"--psm 3 {ek}".strip(), timeout=90))
+            sayfalar.append(pytesseract.image_to_string(img, lang=diller, config="--psm 3", timeout=90))
         except RuntimeError:  # pytesseract zaman aşımında RuntimeError fırlatır
             raise OkumaHatasi("Fotoğraf okuma çok uzun sürdü. Daha küçük veya net bir fotoğraf deneyin.")
     return "\n".join(sayfalar)
